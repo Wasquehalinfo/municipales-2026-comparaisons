@@ -5,42 +5,48 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Comparatif des candidatures</title>
 
-  <!-- CSV robuste + Markdown -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
   <style>
     :root{
-      --bg:#0b0c10;
-      --card:#12141b;
-      --muted:#a9b4c3;
-      --text:#eef3fb;
-      --border:rgba(255,255,255,.08);
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      /* Fond clair */
+      --bg:#ffffff;
+      --text:#0f172a;      /* slate-900 */
+      --muted:#475569;     /* slate-600 */
+      --border:#e2e8f0;    /* slate-200 */
+      --card:#ffffff;
+
+      /* Accents candidats (doux, non politisés) */
+      --a:#0f766e;         /* teal-700 */
+      --aSoft:#ccfbf1;     /* teal-100 */
+      --b:#6d28d9;         /* violet-700 */
+      --bSoft:#ede9fe;     /* violet-100 */
+
+      /* Accents sections (encore plus doux) */
+      --secSoft:#f1f5f9;   /* slate-100 */
+
+      --shadow: 0 10px 30px rgba(2,6,23,.08);
       --radius:16px;
       --max:1100px;
-
-      /* Couleurs “douces” et neutres */
-      --a:#52d6c8;   /* teal doux */
-      --b:#b59cff;   /* violet doux */
     }
 
     *{box-sizing:border-box}
     body{
       margin:0;
       font-family: system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      background: linear-gradient(180deg, #0b0c10 0%, #07080b 100%);
-      color:var(--text);
-      line-height: 1.5;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
     }
-    a{color:inherit}
 
     header{
       position:sticky; top:0; z-index:10;
-      backdrop-filter: blur(10px);
-      background: rgba(11,12,16,.78);
-      border-bottom: 1px solid rgba(255,255,255,.06);
+      background: rgba(255,255,255,.92);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
     }
+
     .topbar{
       max-width:var(--max);
       margin:0 auto;
@@ -52,16 +58,15 @@
       flex-wrap:wrap;
     }
 
-    /* Typo plus grande */
     .title h1{
       margin:0;
-      font-size: 20px;
-      font-weight: 760;
+      font-size: 22px;
+      font-weight: 850;
       letter-spacing:.2px;
     }
     .sub{
       margin-top:6px;
-      font-size: 14px;
+      font-size: 15px;
       color: var(--muted);
     }
 
@@ -72,22 +77,24 @@
       flex-wrap:wrap;
       justify-content:flex-end;
     }
+
     .chip{
       border:1px solid var(--border);
-      background: rgba(255,255,255,.03);
+      background: #fff;
       padding:10px 12px;
       border-radius:999px;
-      font-size: 14px;
+      font-size: 15px;
       text-decoration:none;
+      color: var(--text);
     }
-    .chip:hover{border-color: rgba(255,255,255,.18)}
+    .chip:hover{background: #f8fafc}
 
     .seg{
       display:inline-flex;
       border:1px solid var(--border);
       border-radius:999px;
       overflow:hidden;
-      background: rgba(255,255,255,.03);
+      background: #fff;
     }
     .seg button{
       appearance:none;
@@ -95,89 +102,99 @@
       background:transparent;
       color:var(--text);
       padding:10px 12px;
-      font-size: 14px;
+      font-size: 15px;
       cursor:pointer;
     }
     .seg button[aria-pressed="true"]{
-      background: rgba(255,255,255,.08);
+      background: #f1f5f9;
+      font-weight: 750;
     }
 
     .wrap{max-width:var(--max); margin:0 auto; padding:24px 16px 64px}
 
-    /* Cartes candidat (en haut) */
+    /* Cartes candidats */
     .candRow{
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:12px;
-      margin-bottom: 16px;
+      margin-bottom: 18px;
     }
     .candCard{
       border:1px solid var(--border);
       border-radius: var(--radius);
-      background: rgba(18,20,27,.85);
+      background: var(--card);
       box-shadow: var(--shadow);
-      padding: 14px;
-      position:relative;
-      overflow:hidden;
+      padding: 16px;
     }
-    .candCard::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      background: radial-gradient(800px 200px at 20% 0%, rgba(255,255,255,.06), transparent 60%);
-      pointer-events:none;
-    }
-    .candHead{display:flex; align-items:baseline; justify-content:space-between; gap:10px}
-    .candName{font-size:16px; font-weight:800; margin:0}
-    .candList{font-size:14px; color:var(--muted); margin-top:4px}
+    .candHead{display:flex; align-items:flex-start; justify-content:space-between; gap:10px}
+    .candName{font-size:18px; font-weight:900; margin:0}
+    .candList{font-size:15px; color:var(--muted); margin-top:4px}
     .badge{
       font-size:12px;
-      border:1px solid rgba(255,255,255,.12);
+      border:1px solid var(--border);
       padding:4px 10px;
       border-radius:999px;
-      color:var(--muted);
-      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      background: #fff;
+      white-space:nowrap;
     }
+    .candA{border-left: 6px solid var(--a)}
+    .candB{border-left: 6px solid var(--b)}
     .candA .candName{color: var(--a)}
     .candB .candName{color: var(--b)}
 
-    /* Sections */
+    /* Grande section (Les équipes / Les programmes / Les moyens) */
     .section{
       margin-top:18px;
-      background: rgba(255,255,255,.02);
-      border:1px solid rgba(255,255,255,.06);
+      border:1px solid var(--border);
       border-radius: var(--radius);
-      box-shadow: var(--shadow);
       overflow:hidden;
+      box-shadow: var(--shadow);
+      background: var(--card);
     }
     .sectionHead{
-      padding:16px 16px 12px;
+      padding:18px 16px;
+      border-bottom:1px solid var(--border);
+      background: var(--secSoft);
       display:flex;
-      align-items:baseline;
+      align-items:center;
       justify-content:space-between;
       gap:12px;
-      border-bottom:1px solid rgba(255,255,255,.06);
     }
-    .sectionHead h2{margin:0; font-size:18px}
-    .hint{font-size:14px; color:var(--muted)}
+    .sectionHead h2{
+      margin:0;
+      font-size: 22px;       /* plus gros et distinct */
+      font-weight: 900;
+      letter-spacing:.2px;
+    }
+    /* petites pastilles couleur pour marquer la section, sans agressivité */
+    .sectionMark{
+      display:flex; gap:8px; align-items:center;
+      font-size:13px; color: var(--muted);
+    }
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      border:1px solid rgba(2,6,23,.1);
+    }
+    .dot.a{background: var(--aSoft); border-color: rgba(15,118,110,.25)}
+    .dot.b{background: var(--bSoft); border-color: rgba(109,40,217,.25)}
 
-    details{
-      border-top:1px solid rgba(255,255,255,.06);
-      background: rgba(255,255,255,.01);
-    }
+    /* Sous-parties (accordéons) */
+    details{border-top:1px solid var(--border)}
     summary{
       list-style:none;
       cursor:pointer;
-      padding:14px 16px;
+      padding:16px;
       display:flex;
-      gap:10px;
       align-items:center;
       justify-content:space-between;
       user-select:none;
+      background:#fff;
     }
     summary::-webkit-details-marker{display:none}
-    .sumTitle{font-weight:750; font-size:16px}
-    .chev{opacity:.8}
+    .sumTitle{font-weight:900; font-size:18px}
+    .chev{opacity:.65}
+    details[open] summary{background:#fafafa}
     details[open] .chev{transform: rotate(180deg)}
     .topicBody{padding:0 16px 16px}
 
@@ -189,41 +206,39 @@
       margin-top: 12px;
     }
     .colCard{
-      border:1px solid rgba(255,255,255,.08);
-      background: rgba(18,20,27,.88);
+      border:1px solid var(--border);
       border-radius: 14px;
       padding: 12px;
+      background:#fff;
     }
     .colHead{
       display:flex;
-      align-items:center;
+      align-items:flex-start;
       justify-content:space-between;
       gap:10px;
       padding-bottom:10px;
-      border-bottom:1px solid rgba(255,255,255,.06);
+      border-bottom:1px solid var(--border);
       margin-bottom:10px;
     }
-    .colName{font-weight:850; font-size:15px; margin:0}
-    .colTag{font-size:13px; color:var(--muted); margin-top:2px}
+    .colName{font-weight:950; font-size:16px; margin:0}
+    .colTag{font-size:14px; color:var(--muted); margin-top:2px}
 
     .items{display:flex; flex-direction:column; gap:10px}
     .item{
       padding:12px;
-      border:1px solid rgba(255,255,255,.07);
+      border:1px solid var(--border);
       border-radius: 14px;
-      background: rgba(255,255,255,.02);
-      position: relative;
+      background: #fff;
     }
-    /* Accents couleur candidat (petite barre) */
-    .itemA{border-left: 4px solid rgba(82,214,200,.55)}
-    .itemB{border-left: 4px solid rgba(181,156,255,.55)}
+    .itemA{border-left: 5px solid rgba(15,118,110,.35); background: linear-gradient(90deg, rgba(204,251,241,.55), #fff 40%)}
+    .itemB{border-left: 5px solid rgba(109,40,217,.35); background: linear-gradient(90deg, rgba(237,233,254,.65), #fff 40%)}
 
-    .itemTitle{font-size:14px; font-weight:850; margin:0 0 6px}
-    .itemText{font-size:16px; margin:0; color:#e6eefc}
+    .itemTitle{font-size:15px; font-weight:950; margin:0 0 6px}
+    .itemText{font-size:17px; margin:0}
     .itemText p{margin:0}
-    .src{margin-top:8px; font-size:13px; color:var(--muted)}
-    .src a{color:inherit; text-decoration:underline; text-decoration-color: rgba(255,255,255,.35)}
-    .src a:hover{text-decoration-color: rgba(255,255,255,.75)}
+    .src{margin-top:8px; font-size:14px; color:var(--muted)}
+    .src a{color:inherit; text-decoration:underline; text-decoration-color: rgba(2,6,23,.25)}
+    .src a:hover{text-decoration-color: rgba(2,6,23,.6)}
 
     /* Mobile: empiler + toggle */
     @media (max-width: 820px){
@@ -237,9 +252,9 @@
 
     .singleView{display:grid; gap:12px; margin-top:12px}
     .rowCompare{
-      border:1px solid rgba(255,255,255,.08);
+      border:1px solid var(--border);
       border-radius: 14px;
-      background: rgba(18,20,27,.88);
+      background: #fff;
       overflow:hidden;
     }
     .rowHead{
@@ -248,24 +263,26 @@
       justify-content:space-between;
       gap:10px;
       align-items:baseline;
-      border-bottom:1px solid rgba(255,255,255,.06);
-      background: rgba(255,255,255,.02);
+      border-bottom:1px solid var(--border);
+      background: #f8fafc;
     }
-    .rowHead strong{font-size:14px}
+    .rowHead strong{font-size:15px}
     .pill{
       font-size:12px;
       color:var(--muted);
-      border:1px solid rgba(255,255,255,.10);
+      border:1px solid var(--border);
       padding:4px 10px;
       border-radius:999px;
+      background:#fff;
     }
     .rowBody{padding:12px}
-    .rowLabel{font-size:14px; font-weight:850; margin:0 0 6px}
-    .rowText{font-size:16px}
+    .rowLabel{font-size:15px; font-weight:950; margin:0 0 6px}
+    .rowText{font-size:17px}
     .rowText p{margin:0}
 
-    .loading{color:var(--muted); font-size:16px}
-    .footerNote{margin-top:18px; font-size:14px; color:var(--muted)}
+    .loading{color:var(--muted); font-size:17px}
+    .footerNote{margin-top:18px; font-size:15px; color:var(--muted)}
+    code{background:#f1f5f9; border:1px solid var(--border); padding:2px 6px; border-radius:8px}
   </style>
 </head>
 
@@ -274,13 +291,13 @@
   <div class="topbar">
     <div class="title">
       <h1 id="pageTitle">Comparatif des candidatures</h1>
-      <div class="sub" id="pageSub">Chargement…</div>
+      <div class="sub" id="pageSub">Mobile : bascule A / B / Les deux • Desktop : côte à côte</div>
     </div>
 
     <div class="nav">
-      <a class="chip" href="#equipe">L’équipe</a>
-      <a class="chip" href="#programme">Le programme</a>
-      <a class="chip" href="#budget">Le budget</a>
+      <a class="chip" href="#equipes">Les équipes</a>
+      <a class="chip" href="#programmes">Les programmes</a>
+      <a class="chip" href="#moyens">Les moyens</a>
 
       <div class="seg" role="group" aria-label="Affichage mobile">
         <button id="btnBoth" aria-pressed="true">Les deux</button>
@@ -296,23 +313,21 @@
 </main>
 
 <script>
-/** ✅ Ton CSV Google Sheets publié */
 const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbr3kE4RckddIXPH8F2EGSWeGmHmCcTs2SNM-WqYUNV1NgcSNEr_kdl3N-RBolLFofzZfBMd4LnzyJ/pub?output=csv";
 
-/** Candidats (comme demandé) */
 const CANDIDATES = {
   A: { name: "Benoit Tirmarche", tag: "Wasquehal Vivante" },
   B: { name: "Stéphanie Ducret", tag: "Wasquehal pour Tous" }
 };
 
-/** Les 3 parties fixes (ordre contrôlé ici) */
+/* 3 grandes parties (sans descriptions) */
 const PARTS = [
-  { key: "equipe", id: "equipe", title: "L’équipe", hint: "Parcours, gouvernance, transparence" },
-  { key: "programme", id: "programme", title: "Le programme", hint: "Problématiques par thèmes" },
-  { key: "budget", id: "budget", title: "Le budget", hint: "Financement, priorités, investissements" },
+  { key: "equipes",   id: "equipes",   title: "Les équipes" },
+  { key: "programmes",id: "programmes",title: "Les programmes" },
+  { key: "moyens",    id: "moyens",    title: "Les moyens" },
 ];
 
-let mobileMode = "both"; // "both" | "A" | "B"
+let mobileMode = "both";
 function setPressed(id, pressed){ document.getElementById(id).setAttribute("aria-pressed", pressed ? "true" : "false"); }
 function setMobileMode(mode){
   mobileMode = mode;
@@ -329,25 +344,23 @@ function esc(s){
   return (s ?? "").toString()
     .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
 }
-
-/* Markdown autorisé dans les cellules candidatA/candidatB */
 function mdToHtml(s){ return marked.parse((s ?? "").toString()); }
-
 function srcHtml(url){
   const u = (url || "").trim();
   if(!u) return "";
   const safe = esc(u).replaceAll('"',"&quot;");
   return `<div class="src">Source : <a href="${safe}" target="_blank" rel="noopener">${safe}</a></div>`;
 }
-
 function num(x, fallback=999){
   const n = parseFloat((x ?? "").toString().replace(",", "."));
   return Number.isFinite(n) ? n : fallback;
 }
 
 /**
- * CSV attendu (colonnes minimales) :
+ * CSV attendu :
  * partie, sous_partie, item, candidatA, candidatB, sourceA, sourceB, ordre_sous_partie, ordre_item
+ *
+ * partie doit être : equipes | programmes | moyens
  */
 function normalizeRow(r){
   return {
@@ -364,7 +377,6 @@ function normalizeRow(r){
 }
 
 function buildModel(rows){
-  // partKey -> sousPartKey -> items[]
   const partsMap = new Map();
   for(const p of PARTS){
     partsMap.set(p.key, { ...p, sous: new Map() });
@@ -378,13 +390,8 @@ function buildModel(rows){
     const sp = r.sous_partie || "Divers";
 
     if(!part.sous.has(sp)){
-      part.sous.set(sp, {
-        title: sp,
-        order: r.ordre_sous_partie,
-        items: []
-      });
+      part.sous.set(sp, { title: sp, order: r.ordre_sous_partie, items: [] });
     }
-
     part.sous.get(sp).items.push({
       label: r.item || "Élément",
       order: r.ordre_item,
@@ -393,27 +400,19 @@ function buildModel(rows){
     });
   }
 
-  // Convert to arrays + sort
   const parts = PARTS.map(p => {
     const part = partsMap.get(p.key);
     const sousParts = Array.from(part.sous.values()).sort((a,b)=>{
       if(a.order !== b.order) return a.order - b.order;
       return a.title.localeCompare(b.title, "fr");
     });
-
     for(const sp of sousParts){
       sp.items.sort((a,b)=> a.order - b.order);
     }
-
     return { ...p, sousParts };
   });
 
-  return {
-    title: "Comparatif des candidatures",
-    subtitle: "Mobile : bascule A / B / Les deux • Desktop : côte à côte",
-    candidates: CANDIDATES,
-    parts
-  };
+  return { title:"Comparatif des candidatures", subtitle:"Mobile : bascule A / B / Les deux • Desktop : côte à côte", candidates:CANDIDATES, parts };
 }
 
 function render(model){
@@ -559,21 +558,21 @@ function render(model){
       <section class="section" id="${esc(part.id)}">
         <div class="sectionHead">
           <h2>${esc(part.title)}</h2>
-          <div class="hint">${esc(part.hint || "")}</div>
+          <div class="sectionMark" aria-hidden="true">
+            <span class="dot a"></span><span class="dot b"></span>
+          </div>
         </div>
-        ${sousHtml || `<div style="padding:16px;color:var(--muted);font-size:16px">Aucun élément pour cette partie.</div>`}
+        ${sousHtml || `<div style="padding:16px;color:var(--muted);font-size:17px">Aucun élément pour cette partie.</div>`}
       </section>
     `;
   }).join("");
 
   app.innerHTML = headerCards + sectionsHtml + `
     <div class="footerNote">
-      Astuce : sur mobile, utilise “A / B / Les deux” pour une comparaison confortable sans zoom.
-      Le texte des candidats peut contenir du Markdown (ex: <code>**gras**</code>, <code>[lien](https://...)</code>).
+      Astuce : sur mobile, utilise “A / B / Les deux”. Les cellules <code>candidatA</code>/<code>candidatB</code> acceptent le Markdown (ex: <code>**gras**</code>, <code>[lien](https://...)</code>).
     </div>
   `;
 
-  // Affiche le bon mode mobile
   document.querySelectorAll('.mobileOnly[data-mode]').forEach(el => {
     el.style.display = (el.getAttribute('data-mode') === mobileMode) ? 'grid' : 'none';
   });
@@ -600,7 +599,6 @@ function loadFromCsv(){
     }
   });
 }
-
 loadFromCsv();
 </script>
 </body>
