@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Comparatif des candidatures</title>
 
+  <!-- CSV robuste + Markdown -->
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
@@ -23,7 +24,7 @@
       --b:#6d28d9;         /* violet-700 */
       --bSoft:#ede9fe;     /* violet-100 */
 
-      /* Accents sections (encore plus doux) */
+      /* Accents sections */
       --secSoft:#f1f5f9;   /* slate-100 */
 
       --shadow: 0 10px 30px rgba(2,6,23,.08);
@@ -143,7 +144,7 @@
     .candA .candName{color: var(--a)}
     .candB .candName{color: var(--b)}
 
-    /* Grande section (Les équipes / Les programmes / Les moyens) */
+    /* Grande section */
     .section{
       margin-top:18px;
       border:1px solid var(--border);
@@ -163,11 +164,10 @@
     }
     .sectionHead h2{
       margin:0;
-      font-size: 22px;       /* plus gros et distinct */
+      font-size: 22px;
       font-weight: 900;
       letter-spacing:.2px;
     }
-    /* petites pastilles couleur pour marquer la section, sans agressivité */
     .sectionMark{
       display:flex; gap:8px; align-items:center;
       font-size:13px; color: var(--muted);
@@ -297,7 +297,7 @@
     <div class="nav">
       <a class="chip" href="#equipes">Les équipes</a>
       <a class="chip" href="#programmes">Les programmes</a>
-      <a class="chip" href="#moyens">Les moyens</a>
+      <a class="chip" href="#financements">Les financements</a>
 
       <div class="seg" role="group" aria-label="Affichage mobile">
         <button id="btnBoth" aria-pressed="true">Les deux</button>
@@ -313,293 +313,325 @@
 </main>
 
 <script>
-const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbr3kE4RckddIXPH8F2EGSWeGmHmCcTs2SNM-WqYUNV1NgcSNEr_kdl3N-RBolLFofzZfBMd4LnzyJ/pub?output=csv";
+  /** ✅ Ton CSV Google Sheets publié */
+  const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbr3kE4RckddIXPH8F2EGSWeGmHmCcTs2SNM-WqYUNV1NgcSNEr_kdl3N-RBolLFofzZfBMd4LnzyJ/pub?output=csv";
 
-const CANDIDATES = {
-  A: { name: "Benoit Tirmarche", tag: "Wasquehal Vivante" },
-  B: { name: "Stéphanie Ducret", tag: "Wasquehal pour Tous" }
-};
-
-/* 3 grandes parties (sans descriptions) */
-const PARTS = [
-  { key: "equipes",   id: "equipes",   title: "Les équipes" },
-  { key: "programmes",id: "programmes",title: "Les programmes" },
-  { key: "moyens",    id: "moyens",    title: "Les moyens" },
-];
-
-let mobileMode = "both";
-function setPressed(id, pressed){ document.getElementById(id).setAttribute("aria-pressed", pressed ? "true" : "false"); }
-function setMobileMode(mode){
-  mobileMode = mode;
-  setPressed("btnBoth", mode==="both");
-  setPressed("btnA", mode==="A");
-  setPressed("btnB", mode==="B");
-  render(window.__MODEL__);
-}
-document.getElementById("btnBoth").addEventListener("click", () => setMobileMode("both"));
-document.getElementById("btnA").addEventListener("click", () => setMobileMode("A"));
-document.getElementById("btnB").addEventListener("click", () => setMobileMode("B"));
-
-function esc(s){
-  return (s ?? "").toString()
-    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
-}
-function mdToHtml(s){ return marked.parse((s ?? "").toString()); }
-function srcHtml(url){
-  const u = (url || "").trim();
-  if(!u) return "";
-  const safe = esc(u).replaceAll('"',"&quot;");
-  return `<div class="src">Source : <a href="${safe}" target="_blank" rel="noopener">${safe}</a></div>`;
-}
-function num(x, fallback=999){
-  const n = parseFloat((x ?? "").toString().replace(",", "."));
-  return Number.isFinite(n) ? n : fallback;
-}
-
-/**
- * CSV attendu :
- * partie, sous_partie, item, candidatA, candidatB, sourceA, sourceB, ordre_sous_partie, ordre_item
- *
- * partie doit être : equipes | programmes | moyens
- */
-function normalizeRow(r){
-  return {
-    partie: (r.partie || "").trim().toLowerCase(),
-    sous_partie: (r.sous_partie || "").trim(),
-    item: (r.item || "").trim(),
-    candidatA: (r.candidatA || "").trim(),
-    candidatB: (r.candidatB || "").trim(),
-    sourceA: (r.sourceA || "").trim(),
-    sourceB: (r.sourceB || "").trim(),
-    ordre_sous_partie: num(r.ordre_sous_partie, 999),
-    ordre_item: num(r.ordre_item, 999),
+  const CANDIDATES = {
+    A: { name: "Benoit Tirmarche", tag: "Wasquehal Vivante" },
+    B: { name: "Stéphanie Ducret", tag: "Wasquehal pour Tous" }
   };
-}
 
-function buildModel(rows){
-  const partsMap = new Map();
-  for(const p of PARTS){
-    partsMap.set(p.key, { ...p, sous: new Map() });
+  /* 3 grandes parties (sans descriptions) */
+  const PARTS = [
+    { key: "equipes",       id: "equipes",       title: "Les équipes" },
+    { key: "programmes",    id: "programmes",    title: "Les programmes" },
+    { key: "financements",  id: "financements",  title: "Les financements" },
+  ];
+
+  let mobileMode = "both";
+
+  function setPressed(id, pressed){
+    document.getElementById(id).setAttribute("aria-pressed", pressed ? "true" : "false");
+  }
+  function setMobileMode(mode){
+    mobileMode = mode;
+    setPressed("btnBoth", mode==="both");
+    setPressed("btnA", mode==="A");
+    setPressed("btnB", mode==="B");
+    render(window.__MODEL__);
+  }
+  document.getElementById("btnBoth").addEventListener("click", () => setMobileMode("both"));
+  document.getElementById("btnA").addEventListener("click", () => setMobileMode("A"));
+  document.getElementById("btnB").addEventListener("click", () => setMobileMode("B"));
+
+  function esc(s){
+    return (s ?? "").toString()
+      .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
   }
 
-  for(const raw of rows){
-    const r = normalizeRow(raw);
-    if(!r.partie || !partsMap.has(r.partie)) continue;
+  /* Markdown autorisé dans les cellules candidatA/candidatB */
+  function mdToHtml(s){ return marked.parse((s ?? "").toString()); }
 
-    const part = partsMap.get(r.partie);
-    const sp = r.sous_partie || "Divers";
+  function srcHtml(url){
+    const u = (url || "").trim();
+    if(!u) return "";
+    const safe = esc(u).replaceAll('"',"&quot;");
+    return `<div class="src">Source : <a href="${safe}" target="_blank" rel="noopener">${safe}</a></div>`;
+  }
 
-    if(!part.sous.has(sp)){
-      part.sous.set(sp, { title: sp, order: r.ordre_sous_partie, items: [] });
+  function num(x, fallback=999){
+    const n = parseFloat((x ?? "").toString().replace(",", "."));
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  /* ✅ Rend le code compatible avec plusieurs libellés dans le CSV */
+  function normalizePartKey(value){
+    const v = (value || "").toString().trim().toLowerCase();
+
+    // équipes
+    if (["equipe","équipes","équipe","les équipes","les equipe","les equipes","equipes"].includes(v)) return "equipes";
+
+    // programmes
+    if (["programme","programmes","le programme","les programmes","programmes "].includes(v)) return "programmes";
+
+    // financements (acceptons budget/moyens)
+    if (["budget","moyen","moyens","les moyens","financement","financements","les financements","financements "].includes(v)) return "financements";
+
+    // déjà bon ?
+    if (["equipes","programmes","financements"].includes(v)) return v;
+
+    return v;
+  }
+
+  /**
+   * CSV attendu :
+   * partie, sous_partie, item, candidatA, candidatB, sourceA, sourceB, ordre_sous_partie, ordre_item
+   */
+  function normalizeRow(r){
+    return {
+      partie: normalizePartKey(r.partie),
+      sous_partie: (r.sous_partie || "").trim(),
+      item: (r.item || "").trim(),
+      candidatA: (r.candidatA || "").trim(),
+      candidatB: (r.candidatB || "").trim(),
+      sourceA: (r.sourceA || "").trim(),
+      sourceB: (r.sourceB || "").trim(),
+      ordre_sous_partie: num(r.ordre_sous_partie, 999),
+      ordre_item: num(r.ordre_item, 999),
+    };
+  }
+
+  function buildModel(rows){
+    const partsMap = new Map();
+    for(const p of PARTS){
+      partsMap.set(p.key, { ...p, sous: new Map() });
     }
-    part.sous.get(sp).items.push({
-      label: r.item || "Élément",
-      order: r.ordre_item,
-      A: { text: r.candidatA, source: r.sourceA },
-      B: { text: r.candidatB, source: r.sourceB },
-    });
-  }
 
-  const parts = PARTS.map(p => {
-    const part = partsMap.get(p.key);
-    const sousParts = Array.from(part.sous.values()).sort((a,b)=>{
-      if(a.order !== b.order) return a.order - b.order;
-      return a.title.localeCompare(b.title, "fr");
-    });
-    for(const sp of sousParts){
-      sp.items.sort((a,b)=> a.order - b.order);
+    for(const raw of rows){
+      const r = normalizeRow(raw);
+      if(!r.partie || !partsMap.has(r.partie)) continue;
+
+      const part = partsMap.get(r.partie);
+      const sp = r.sous_partie || "Divers";
+
+      if(!part.sous.has(sp)){
+        part.sous.set(sp, { title: sp, order: r.ordre_sous_partie, items: [] });
+      }
+      part.sous.get(sp).items.push({
+        label: r.item || "Élément",
+        order: r.ordre_item,
+        A: { text: r.candidatA, source: r.sourceA },
+        B: { text: r.candidatB, source: r.sourceB },
+      });
     }
-    return { ...p, sousParts };
-  });
 
-  return { title:"Comparatif des candidatures", subtitle:"Mobile : bascule A / B / Les deux • Desktop : côte à côte", candidates:CANDIDATES, parts };
-}
+    const parts = PARTS.map(p => {
+      const part = partsMap.get(p.key);
+      const sousParts = Array.from(part.sous.values()).sort((a,b)=>{
+        if(a.order !== b.order) return a.order - b.order;
+        return a.title.localeCompare(b.title, "fr");
+      });
+      for(const sp of sousParts){
+        sp.items.sort((a,b)=> a.order - b.order);
+      }
+      return { ...p, sousParts };
+    });
 
-function render(model){
-  const app = document.getElementById("app");
-  if(!model){
-    app.innerHTML = `<div class="loading">Aucune donnée.</div>`;
-    return;
+    return {
+      title: "Comparatif des candidatures",
+      subtitle: "Mobile : bascule A / B / Les deux • Desktop : côte à côte",
+      candidates: CANDIDATES,
+      parts
+    };
   }
-  document.getElementById("pageTitle").textContent = model.title;
-  document.getElementById("pageSub").textContent = model.subtitle;
 
-  const {A, B} = model.candidates;
+  function render(model){
+    const app = document.getElementById("app");
+    if(!model){
+      app.innerHTML = `<div class="loading">Aucune donnée.</div>`;
+      return;
+    }
 
-  const headerCards = `
-    <div class="candRow">
-      <div class="candCard candA">
-        <div class="candHead">
-          <div>
-            <p class="candName">${esc(A.name)}</p>
-            <div class="candList">${esc(A.tag)}</div>
+    document.getElementById("pageTitle").textContent = model.title;
+    document.getElementById("pageSub").textContent = model.subtitle;
+
+    const {A, B} = model.candidates;
+
+    const headerCards = `
+      <div class="candRow">
+        <div class="candCard candA">
+          <div class="candHead">
+            <div>
+              <p class="candName">${esc(A.name)}</p>
+              <div class="candList">${esc(A.tag)}</div>
+            </div>
+            <span class="badge">Candidat A</span>
           </div>
-          <span class="badge">Candidat A</span>
+        </div>
+        <div class="candCard candB">
+          <div class="candHead">
+            <div>
+              <p class="candName">${esc(B.name)}</p>
+              <div class="candList">${esc(B.tag)}</div>
+            </div>
+            <span class="badge">Candidate B</span>
+          </div>
         </div>
       </div>
-      <div class="candCard candB">
-        <div class="candHead">
-          <div>
-            <p class="candName">${esc(B.name)}</p>
-            <div class="candList">${esc(B.tag)}</div>
-          </div>
-          <span class="badge">Candidate B</span>
-        </div>
-      </div>
-    </div>
-  `;
+    `;
 
-  const sectionsHtml = model.parts.map(part => {
-    const sousHtml = (part.sousParts || []).map((sp, idx) => {
-      const desktop = `
-        <div class="compareGrid desktopOnly">
-          <div class="colCard">
-            <div class="colHead">
-              <div>
-                <div class="colName" style="color:var(--a)">${esc(A.name)}</div>
-                <div class="colTag">${esc(A.tag)}</div>
-              </div>
-            </div>
-            <div class="items">
-              ${sp.items.map(it => `
-                <div class="item itemA">
-                  <p class="itemTitle">${esc(it.label)}</p>
-                  <div class="itemText">${mdToHtml(it.A?.text || "")}</div>
-                  ${srcHtml(it.A?.source)}
-                </div>
-              `).join("")}
-            </div>
-          </div>
-
-          <div class="colCard">
-            <div class="colHead">
-              <div>
-                <div class="colName" style="color:var(--b)">${esc(B.name)}</div>
-                <div class="colTag">${esc(B.tag)}</div>
-              </div>
-            </div>
-            <div class="items">
-              ${sp.items.map(it => `
-                <div class="item itemB">
-                  <p class="itemTitle">${esc(it.label)}</p>
-                  <div class="itemText">${mdToHtml(it.B?.text || "")}</div>
-                  ${srcHtml(it.B?.source)}
-                </div>
-              `).join("")}
-            </div>
-          </div>
-        </div>
-      `;
-
-      const mobileBoth = `
-        <div class="singleView mobileOnly" data-mode="both">
-          ${sp.items.map(it => `
-            <div class="rowCompare">
-              <div class="rowHead">
-                <strong>${esc(it.label)}</strong>
-                <span class="pill">Comparer</span>
-              </div>
-              <div class="rowBody" style="display:grid;gap:12px;">
+    const sectionsHtml = model.parts.map(part => {
+      const sousHtml = (part.sousParts || []).map((sp, idx) => {
+        const desktop = `
+          <div class="compareGrid desktopOnly">
+            <div class="colCard">
+              <div class="colHead">
                 <div>
-                  <div class="rowLabel" style="color:var(--a)">${esc(A.name)}</div>
-                  <div class="rowText">${mdToHtml(it.A?.text || "")}</div>
-                  ${srcHtml(it.A?.source)}
-                </div>
-                <div>
-                  <div class="rowLabel" style="color:var(--b)">${esc(B.name)}</div>
-                  <div class="rowText">${mdToHtml(it.B?.text || "")}</div>
-                  ${srcHtml(it.B?.source)}
+                  <div class="colName" style="color:var(--a)">${esc(A.name)}</div>
+                  <div class="colTag">${esc(A.tag)}</div>
                 </div>
               </div>
+              <div class="items">
+                ${sp.items.map(it => `
+                  <div class="item itemA">
+                    <p class="itemTitle">${esc(it.label)}</p>
+                    <div class="itemText">${mdToHtml(it.A?.text || "")}</div>
+                    ${srcHtml(it.A?.source)}
+                  </div>
+                `).join("")}
+              </div>
             </div>
-          `).join("")}
-        </div>
-      `;
 
-      const mobileSingle = (who) => {
-        const name = who === "A" ? A.name : B.name;
-        const color = who === "A" ? "var(--a)" : "var(--b)";
-        return `
-          <div class="singleView mobileOnly" data-mode="${who}">
+            <div class="colCard">
+              <div class="colHead">
+                <div>
+                  <div class="colName" style="color:var(--b)">${esc(B.name)}</div>
+                  <div class="colTag">${esc(B.tag)}</div>
+                </div>
+              </div>
+              <div class="items">
+                ${sp.items.map(it => `
+                  <div class="item itemB">
+                    <p class="itemTitle">${esc(it.label)}</p>
+                    <div class="itemText">${mdToHtml(it.B?.text || "")}</div>
+                    ${srcHtml(it.B?.source)}
+                  </div>
+                `).join("")}
+              </div>
+            </div>
+          </div>
+        `;
+
+        const mobileBoth = `
+          <div class="singleView mobileOnly" data-mode="both">
             ${sp.items.map(it => `
               <div class="rowCompare">
                 <div class="rowHead">
                   <strong>${esc(it.label)}</strong>
-                  <span class="pill">${esc(name)}</span>
+                  <span class="pill">Comparer</span>
                 </div>
-                <div class="rowBody">
-                  <div class="rowLabel" style="color:${color}">${esc(name)}</div>
-                  <div class="rowText">${mdToHtml((who==="A" ? it.A?.text : it.B?.text) || "")}</div>
-                  ${srcHtml((who==="A" ? it.A?.source : it.B?.source) || "")}
+                <div class="rowBody" style="display:grid;gap:12px;">
+                  <div>
+                    <div class="rowLabel" style="color:var(--a)">${esc(A.name)}</div>
+                    <div class="rowText">${mdToHtml(it.A?.text || "")}</div>
+                    ${srcHtml(it.A?.source)}
+                  </div>
+                  <div>
+                    <div class="rowLabel" style="color:var(--b)">${esc(B.name)}</div>
+                    <div class="rowText">${mdToHtml(it.B?.text || "")}</div>
+                    ${srcHtml(it.B?.source)}
+                  </div>
                 </div>
               </div>
             `).join("")}
           </div>
         `;
-      };
 
-      const mobile = mobileMode === "both" ? mobileBoth : mobileSingle(mobileMode);
+        const mobileSingle = (who) => {
+          const name = who === "A" ? A.name : B.name;
+          const color = who === "A" ? "var(--a)" : "var(--b)";
+          return `
+            <div class="singleView mobileOnly" data-mode="${who}">
+              ${sp.items.map(it => `
+                <div class="rowCompare">
+                  <div class="rowHead">
+                    <strong>${esc(it.label)}</strong>
+                    <span class="pill">${esc(name)}</span>
+                  </div>
+                  <div class="rowBody">
+                    <div class="rowLabel" style="color:${color}">${esc(name)}</div>
+                    <div class="rowText">${mdToHtml((who==="A" ? it.A?.text : it.B?.text) || "")}</div>
+                    ${srcHtml((who==="A" ? it.A?.source : it.B?.source) || "")}
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          `;
+        };
+
+        const mobile = mobileMode === "both" ? mobileBoth : mobileSingle(mobileMode);
+
+        return `
+          <details ${idx===0 ? "open" : ""}>
+            <summary>
+              <div class="sumTitle">${esc(sp.title)}</div>
+              <div class="chev">▾</div>
+            </summary>
+            <div class="topicBody">
+              ${desktop}
+              ${mobile}
+            </div>
+          </details>
+        `;
+      }).join("");
 
       return `
-        <details ${idx===0 ? "open" : ""}>
-          <summary>
-            <div class="sumTitle">${esc(sp.title)}</div>
-            <div class="chev">▾</div>
-          </summary>
-          <div class="topicBody">
-            ${desktop}
-            ${mobile}
+        <section class="section" id="${esc(part.id)}">
+          <div class="sectionHead">
+            <h2>${esc(part.title)}</h2>
+            <div class="sectionMark" aria-hidden="true">
+              <span class="dot a"></span><span class="dot b"></span>
+            </div>
           </div>
-        </details>
+          ${sousHtml || `<div style="padding:16px;color:var(--muted);font-size:17px">Aucun élément pour cette partie.</div>`}
+        </section>
       `;
     }).join("");
 
-    return `
-      <section class="section" id="${esc(part.id)}">
-        <div class="sectionHead">
-          <h2>${esc(part.title)}</h2>
-          <div class="sectionMark" aria-hidden="true">
-            <span class="dot a"></span><span class="dot b"></span>
-          </div>
-        </div>
-        ${sousHtml || `<div style="padding:16px;color:var(--muted);font-size:17px">Aucun élément pour cette partie.</div>`}
-      </section>
+    app.innerHTML = headerCards + sectionsHtml + `
+      <div class="footerNote">
+        Astuce : sur mobile, utilise “A / B / Les deux”. Les cellules <code>candidatA</code>/<code>candidatB</code> acceptent le Markdown (ex: <code>**gras**</code>, <code>[lien](https://...)</code>).
+      </div>
     `;
-  }).join("");
 
-  app.innerHTML = headerCards + sectionsHtml + `
-    <div class="footerNote">
-      Astuce : sur mobile, utilise “A / B / Les deux”. Les cellules <code>candidatA</code>/<code>candidatB</code> acceptent le Markdown (ex: <code>**gras**</code>, <code>[lien](https://...)</code>).
-    </div>
-  `;
+    document.querySelectorAll('.mobileOnly[data-mode]').forEach(el => {
+      el.style.display = (el.getAttribute('data-mode') === mobileMode) ? 'grid' : 'none';
+    });
+  }
 
-  document.querySelectorAll('.mobileOnly[data-mode]').forEach(el => {
-    el.style.display = (el.getAttribute('data-mode') === mobileMode) ? 'grid' : 'none';
-  });
-}
+  function loadFromCsv(){
+    Papa.parse(CSV_URL, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const rows = results.data || [];
+        const model = buildModel(rows);
+        window.__MODEL__ = model;
+        render(model);
+      },
+      error: (err) => {
+        document.getElementById("app").innerHTML = `
+          <div class="loading">
+            Erreur de chargement CSV.<br/>
+            Vérifie que le lien est bien public et au format <b>pub?output=csv</b>.
+            <div style="margin-top:10px;color:var(--muted)">${esc(err?.message || "")}</div>
+          </div>`;
+      }
+    });
+  }
 
-function loadFromCsv(){
-  Papa.parse(CSV_URL, {
-    download: true,
-    header: true,
-    skipEmptyLines: true,
-    complete: (results) => {
-      const rows = results.data || [];
-      const model = buildModel(rows);
-      window.__MODEL__ = model;
-      render(model);
-    },
-    error: (err) => {
-      document.getElementById("app").innerHTML = `
-        <div class="loading">
-          Erreur de chargement CSV.<br/>
-          Vérifie que le lien est bien public et au format <b>pub?output=csv</b>.
-          <div style="margin-top:10px;color:var(--muted)">${esc(err?.message || "")}</div>
-        </div>`;
-    }
-  });
-}
-loadFromCsv();
+  loadFromCsv();
 </script>
 </body>
 </html>
