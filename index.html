@@ -1,11 +1,366 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Ma GitHub Page</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comparatif municipal — 2 candidats</title>
+
+  <!-- CSV robuste + Markdown -->
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b0c10; --card:#12141b; --muted:#9aa4b2; --text:#e8edf5;
+      --border:#222633; --accent:#6ee7ff; --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius:16px; --max:1100px;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;background:linear-gradient(180deg,#0b0c10 0%,#07080b 100%);color:var(--text)}
+    .wrap{max-width:var(--max);margin:0 auto;padding:24px 16px 64px}
+    header{position:sticky;top:0;z-index:10;backdrop-filter:blur(10px);background:rgba(11,12,16,.75);border-bottom:1px solid rgba(255,255,255,.06)}
+    .topbar{max-width:var(--max);margin:0 auto;padding:14px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    h1{font-size:16px;margin:0;font-weight:650}
+    .sub{font-size:12px;color:var(--muted)}
+    .nav{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .chip{border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);padding:8px 10px;border-radius:999px;font-size:12px;text-decoration:none}
+    .chip:hover{border-color:rgba(255,255,255,.18)}
+    .seg{display:inline-flex;border:1px solid rgba(255,255,255,.10);border-radius:999px;overflow:hidden;background:rgba(255,255,255,.03)}
+    .seg button{appearance:none;border:0;background:transparent;color:var(--text);padding:8px 10px;font-size:12px;cursor:pointer}
+    .seg button[aria-pressed="true"]{background:rgba(110,231,255,.15)}
+    .section{margin-top:22px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+    .sectionHead{padding:16px 16px 10px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(255,255,255,.06)}
+    .sectionHead h2{margin:0;font-size:15px}
+    .hint{font-size:12px;color:var(--muted)}
+    details{border-top:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.01)}
+    summary{list-style:none;cursor:pointer;padding:14px 16px;display:flex;gap:10px;align-items:center;justify-content:space-between;user-select:none}
+    summary::-webkit-details-marker{display:none}
+    .sumTitle{font-weight:600;font-size:13px}
+    .sumMeta{font-size:12px;color:var(--muted)}
+    details[open] .chev{transform:rotate(180deg)}
+    .topicBody{padding:0 16px 16px}
+    .lead{margin:0 0 10px;color:var(--muted);font-size:12px}
+
+    .compareGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .colCard{border:1px solid rgba(255,255,255,.08);background:rgba(18,20,27,.85);border-radius:14px;padding:12px}
+    .colHead{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.06);margin-bottom:10px}
+    .name{font-weight:650;font-size:13px}
+    .tag{font-size:11px;color:var(--muted)}
+    .item{padding:10px;border:1px solid rgba(255,255,255,.07);border-radius:12px;background:rgba(255,255,255,.02);margin-bottom:10px}
+    .itemTitle{font-size:12px;font-weight:650;margin:0 0 6px}
+    .itemText{font-size:13px;margin:0;color:#dbe6f7}
+    .itemText p{margin:0} /* marked entoure souvent de <p> */
+    .src{margin-top:6px;font-size:12px;color:var(--muted)}
+    .src a{color:var(--accent);text-decoration:none}
+    .src a:hover{text-decoration:underline}
+
+    @media (max-width: 820px){ .compareGrid{grid-template-columns:1fr} .desktopOnly{display:none!important} }
+    @media (min-width: 821px){ .mobileOnly{display:none!important} }
+
+    .singleView{display:grid;gap:12px}
+    .rowCompare{border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(18,20,27,.85);overflow:hidden}
+    .rowHead{padding:12px;display:flex;justify-content:space-between;gap:10px;align-items:baseline;border-bottom:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.02)}
+    .rowHead strong{font-size:12px}
+    .rowBody{padding:12px}
+    .pill{font-size:11px;color:var(--muted);border:1px solid rgba(255,255,255,.10);padding:3px 8px;border-radius:999px}
+    .footerNote{margin-top:18px;font-size:12px;color:var(--muted)}
+    .loading{color:var(--muted);font-size:13px}
+  </style>
 </head>
+
 <body>
-  <h1>Hello GitHub Pages 👋</h1>
-  <p>Mon site est en ligne !</p>
+<header>
+  <div class="topbar">
+    <div>
+      <h1 id="pageTitle">Comparatif municipal — 2 candidats</h1>
+      <div class="sub" id="pageSub">Chargement…</div>
+    </div>
+    <div class="nav">
+      <a class="chip" href="#equipe">L’équipe</a>
+      <a class="chip" href="#programme">Le programme</a>
+      <a class="chip" href="#budget">Le budget</a>
+
+      <div class="seg" role="group" aria-label="Affichage mobile">
+        <button id="btnBoth" aria-pressed="true">Les deux</button>
+        <button id="btnA" aria-pressed="false">A</button>
+        <button id="btnB" aria-pressed="false">B</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="app">
+  <div class="loading">Chargement des données…</div>
+</main>
+
+<script>
+/** ✅ TON URL CSV (Google Sheets publié) */
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbr3kE4RckddIXPH8F2EGSWeGmHmCcTs2SNM-WqYUNV1NgcSNEr_kdl3N-RBolLFofzZfBMd4LnzyJ/pub?output=csv";
+
+/** Noms des candidats (à personnaliser) */
+const CANDIDATES = {
+  A: { name: "Candidat A", tag: "Liste A" },
+  B: { name: "Candidat B", tag: "Liste B" }
+};
+
+/** Les 3 grandes parties */
+const PARTS_ORDER = [
+  { key: "equipe", title: "L’équipe", hint: "Parcours, gouvernance, transparence", anchor: "equipe", orderDefault: 1 },
+  { key: "programme", title: "Le programme", hint: "Problématiques par thèmes", anchor: "programme", orderDefault: 2 },
+  { key: "budget", title: "Le budget", hint: "Financement, priorités, investissements", anchor: "budget", orderDefault: 3 },
+];
+
+let mobileMode = "both"; // "both" | "A" | "B"
+function setPressed(id, pressed){ document.getElementById(id).setAttribute("aria-pressed", pressed ? "true" : "false"); }
+function setMobileMode(mode){
+  mobileMode = mode;
+  setPressed("btnBoth", mode==="both");
+  setPressed("btnA", mode==="A");
+  setPressed("btnB", mode==="B");
+  render(window.__MODEL__);
+}
+document.getElementById("btnBoth").addEventListener("click", () => setMobileMode("both"));
+document.getElementById("btnA").addEventListener("click", () => setMobileMode("A"));
+document.getElementById("btnB").addEventListener("click", () => setMobileMode("B"));
+
+function esc(s){
+  return (s ?? "").toString()
+    .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
+}
+function mdToHtml(s){ return marked.parse((s ?? "").toString()); }
+function srcHtml(url){
+  const u = (url || "").trim();
+  if(!u) return "";
+  const safe = esc(u).replaceAll('"',"&quot;");
+  return `<div class="src">Source : <a href="${safe}" target="_blank" rel="noopener">lien</a></div>`;
+}
+function num(x, fallback=0){
+  const n = parseFloat((x ?? "").toString().replace(",", "."));
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function normalizeRow(r){
+  return {
+    partie: (r.partie || "").trim().toLowerCase(),
+    sous_partie: (r.sous_partie || "").trim(),
+    problematique: (r.problematique || "").trim(),
+    axe: (r.axe || "").trim(),
+    proposition: (r.proposition || "").trim(),
+    candidatA: (r.candidatA || "").trim(),
+    candidatB: (r.candidatB || "").trim(),
+    sourceA: (r.sourceA || "").trim(),
+    sourceB: (r.sourceB || "").trim(),
+    ordre_partie: num(r.ordre_partie, 999),
+    ordre_sous_partie: num(r.ordre_sous_partie, 999),
+    ordre_problematique: num(r.ordre_problematique, 999),
+    ordre_item: num(r.ordre_item, 999),
+  };
+}
+
+function buildModel(rows){
+  const partsMap = new Map();
+
+  for(const raw of rows){
+    const r = normalizeRow(raw);
+    if(!r.partie) continue;
+
+    const partKey = r.partie;
+    if(!partsMap.has(partKey)){
+      const def = PARTS_ORDER.find(p => p.key === partKey);
+      partsMap.set(partKey, {
+        key: partKey,
+        id: def?.anchor || partKey,
+        title: def?.title || partKey,
+        hint: def?.hint || "",
+        order: r.ordre_partie !== 999 ? r.ordre_partie : (def?.orderDefault ?? 999),
+        topics: []
+      });
+    }
+
+    const part = partsMap.get(partKey);
+    const sp = r.sous_partie || "Divers";
+    const pb = r.problematique || "Sans problématique";
+    const topicKey = `${sp}|||${pb}`;
+
+    let topic = part.topics.find(t => t.__key === topicKey);
+    if(!topic){
+      topic = {
+        __key: topicKey,
+        sous_partie: sp,
+        title: pb,
+        order_sous_partie: r.ordre_sous_partie,
+        order_problematique: r.ordre_problematique,
+        items: []
+      };
+      part.topics.push(topic);
+    }
+
+    const label = r.axe || r.proposition || "Élément";
+    topic.items.push({
+      label,
+      order_item: r.ordre_item,
+      A: { text: r.candidatA, source: r.sourceA },
+      B: { text: r.candidatB, source: r.sourceB }
+    });
+  }
+
+  const parts = Array.from(partsMap.values()).sort((a,b)=> a.order - b.order);
+  for(const part of parts){
+    part.topics.sort((a,b)=>{
+      if(a.order_sous_partie !== b.order_sous_partie) return a.order_sous_partie - b.order_sous_partie;
+      if(a.order_problematique !== b.order_problematique) return a.order_problematique - b.order_problematique;
+      return a.title.localeCompare(b.title, "fr");
+    });
+    for(const topic of part.topics){
+      topic.items.sort((a,b)=> a.order_item - b.order_item);
+    }
+  }
+
+  return {
+    title: "Comparatif des programmes municipaux",
+    subtitle: "Mobile : bascule A / B / Les deux • Desktop : côte à côte",
+    candidates: CANDIDATES,
+    parts
+  };
+}
+
+function render(model){
+  const app = document.getElementById("app");
+  if(!model){
+    app.innerHTML = `<div class="loading">Aucune donnée.</div>`;
+    return;
+  }
+  document.getElementById("pageTitle").textContent = model.title;
+  document.getElementById("pageSub").textContent = model.subtitle;
+
+  const {A, B} = model.candidates;
+
+  app.innerHTML = model.parts.map(part => {
+    const topicsHtml = part.topics.map((topic, idx) => {
+      const desktop = `
+        <div class="compareGrid desktopOnly">
+          <div class="colCard">
+            <div class="colHead"><div><div class="name">${esc(A.name)}</div><div class="tag">${esc(A.tag)}</div></div></div>
+            ${topic.items.map(it => `
+              <div class="item">
+                <p class="itemTitle">${esc(it.label)}</p>
+                <div class="itemText">${mdToHtml(it.A?.text || "")}</div>
+                ${srcHtml(it.A?.source)}
+              </div>
+            `).join("")}
+          </div>
+          <div class="colCard">
+            <div class="colHead"><div><div class="name">${esc(B.name)}</div><div class="tag">${esc(B.tag)}</div></div></div>
+            ${topic.items.map(it => `
+              <div class="item">
+                <p class="itemTitle">${esc(it.label)}</p>
+                <div class="itemText">${mdToHtml(it.B?.text || "")}</div>
+                ${srcHtml(it.B?.source)}
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `;
+
+      const mobileBoth = `
+        <div class="singleView mobileOnly" data-mode="both">
+          ${topic.items.map(it => `
+            <div class="rowCompare">
+              <div class="rowHead"><strong>${esc(it.label)}</strong><span class="pill">Comparer</span></div>
+              <div class="rowBody" style="display:grid;gap:10px;">
+                <div>
+                  <div class="tag">${esc(A.name)} • ${esc(A.tag)}</div>
+                  <div style="margin-top:6px">${mdToHtml(it.A?.text || "")}</div>
+                  ${srcHtml(it.A?.source)}
+                </div>
+                <div>
+                  <div class="tag">${esc(B.name)} • ${esc(B.tag)}</div>
+                  <div style="margin-top:6px">${mdToHtml(it.B?.text || "")}</div>
+                  ${srcHtml(it.B?.source)}
+                </div>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+
+      const mobileSingle = (who) => `
+        <div class="singleView mobileOnly" data-mode="${who}">
+          ${topic.items.map(it => `
+            <div class="rowCompare">
+              <div class="rowHead"><strong>${esc(it.label)}</strong><span class="pill">${who === "A" ? esc(A.name) : esc(B.name)}</span></div>
+              <div class="rowBody">
+                <div class="tag">${who === "A" ? esc(A.tag) : esc(B.tag)}</div>
+                <div style="margin-top:6px">${mdToHtml((who === "A" ? it.A?.text : it.B?.text) || "")}</div>
+                ${srcHtml(who === "A" ? it.A?.source : it.B?.source)}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      `;
+
+      const mobile = mobileMode === "both" ? mobileBoth : mobileSingle(mobileMode);
+
+      return `
+        <details ${idx===0 ? "open" : ""}>
+          <summary>
+            <div>
+              <div class="sumTitle">${esc(topic.title)}</div>
+              <div class="sumMeta">${esc(topic.sous_partie)}</div>
+            </div>
+            <div class="chev">▾</div>
+          </summary>
+          <div class="topicBody">
+            <p class="lead">${esc(topic.sous_partie)}</p>
+            ${desktop}
+            ${mobile}
+          </div>
+        </details>
+      `;
+    }).join("");
+
+    return `
+      <section class="section" id="${esc(part.id)}">
+        <div class="sectionHead">
+          <h2>${esc(part.title)}</h2>
+          <div class="hint">${esc(part.hint || "")}</div>
+        </div>
+        ${topicsHtml || `<div style="padding:16px;color:var(--muted)">Aucun élément pour cette partie.</div>`}
+      </section>
+    `;
+  }).join("") + `
+    <div class="footerNote">
+      Sur mobile, utilise “A / B / Les deux”. Le contenu (gras/liens) peut être écrit en Markdown dans le CSV.
+    </div>
+  `;
+
+  document.querySelectorAll('.mobileOnly[data-mode]').forEach(el => {
+    el.style.display = (el.getAttribute('data-mode') === mobileMode) ? 'grid' : 'none';
+  });
+}
+
+function loadFromCsv(){
+  Papa.parse(CSV_URL, {
+    download: true,
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      const rows = results.data || [];
+      const model = buildModel(rows);
+      window.__MODEL__ = model;
+      render(model);
+    },
+    error: (err) => {
+      document.getElementById("app").innerHTML = `
+        <div class="loading">
+          Erreur de chargement CSV.<br/>
+          Vérifie que le lien est bien public et au format <b>pub?output=csv</b>.
+          <div style="margin-top:10px;color:var(--muted)">${esc(err?.message || "")}</div>
+        </div>`;
+    }
+  });
+}
+loadFromCsv();
+</script>
 </body>
 </html>
