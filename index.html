@@ -352,17 +352,19 @@
   /* Markdown autorisé dans les cellules candidatA/candidatB */
   function mdToHtml(s){ return marked.parse((s ?? "").toString()); }
 
-  function srcHtml(url){
-    const u = (url || "").trim();
-    if(!u) return "";
-    const safe = esc(u).replaceAll('"',"&quot;");
-    return `<div class="src">Source : <a href="${safe}" target="_blank" rel="noopener">${safe}</a></div>`;
-  }
+  function srcHtml(sources){
+  if(!sources) return "";
 
-  function num(x, fallback=999){
-    const n = parseFloat((x ?? "").toString().replace(",", "."));
-    return Number.isFinite(n) ? n : fallback;
-  }
+  // On laisse Markdown gérer listes, liens, retours ligne
+  const html = marked.parse(sources.toString());
+
+  return `
+    <div class="src">
+      <strong>Sources :</strong>
+      <div class="srcList">${html}</div>
+    </div>
+  `;
+}
 
   /* ✅ Rend le code compatible avec plusieurs libellés dans le CSV */
   function normalizePartKey(value){
