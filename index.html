@@ -113,6 +113,55 @@
 
     .wrap{max-width:var(--max); margin:0 auto; padding:24px 16px 64px}
 
+    /* ===== Édito ===== */
+.edito{
+  margin-bottom: 22px;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #f8fafc; /* très léger */
+  box-shadow: var(--shadow);
+}
+
+.editoTitle{
+  font-size: 18px;
+  font-weight: 900;
+  margin: 0 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editoTitle span{
+  font-size: 20px;
+}
+
+.editoText{
+  font-size: 16px;
+  color: var(--text);
+}
+
+.editoText p{
+  margin: 0 0 8px;
+}
+
+.editoText p:last-child{
+  margin-bottom: 0;
+}
+
+.editoText strong{
+  font-weight: 800;
+}
+
+.editoText a{
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: rgba(15,23,42,.35);
+}
+.editoText a:hover{
+  text-decoration-color: rgba(15,23,42,.8);
+}
+    
     /* Cartes candidats */
     .candRow{
       display:grid;
@@ -518,6 +567,27 @@
 
     const {A, B} = model.candidates;
 
+    const edito = `
+  <section class="edito">
+    <h2 class="editoTitle">
+      <span aria-hidden="true">ℹ️</span>
+      Édito
+    </h2>
+    <div class="editoText">
+      <p>
+        La comparaison des candidatures est réalisée uniquement à partir des écrits des candidates et candidats.
+        Des erreurs peuvent apparaître ; n’hésitez pas à nous les signaler à l’adresse
+        <strong><a href="mailto:studiowasquehal@gmail.com">studiowasquehal@gmail.com</a></strong>.
+      </p>
+      <p>
+        Cette initiative se veut participative et la plus factuelle possible afin d’aider au mieux
+        les Wasquehaliennes et les Wasquehaliens à choisir leur future ou futur maire le
+        <strong>dimanche 15 mars prochain</strong>.
+      </p>
+    </div>
+  </section>
+`;
+    
     const headerCards = `
       <div class="candRow">
         <div class="candCard candA">
@@ -661,7 +731,7 @@
       `;
     }).join("");
 
-    app.innerHTML = headerCards + sectionsHtml;
+    app.innerHTML = edito + headerCards + sectionsHtml;
 
     // Mode mobile (affiche le bon bloc)
     document.querySelectorAll('.mobileOnly[data-mode]').forEach(el => {
