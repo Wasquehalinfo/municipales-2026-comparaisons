@@ -371,6 +371,44 @@
     .rowText p{margin:0}
 
     .loading{color:var(--muted); font-size:17px}
+
+    /* ===== Amélioration lisibilité titres items (mobile) ===== */
+@media (max-width: 820px){
+
+  .rowHead{
+    background: #eef2f7;              /* fond plus clair */
+    border-bottom: 2px solid var(--border);
+    padding: 14px 14px;
+  }
+
+  .rowHead strong{
+    font-size: 17px;                  /* plus grand */
+    font-weight: 900;                 /* plus gras */
+    color: var(--text);
+    line-height: 1.35;
+  }
+
+  /* Accent visuel à gauche du titre */
+  .rowHead::before{
+    content:"";
+    display:block;
+    width:4px;
+    background: linear-gradient(
+      to bottom,
+      var(--a),
+      var(--b)
+    );
+    border-radius: 4px;
+    margin-right: 10px;
+  }
+
+  .rowHead{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+  }
+}
+    
   </style>
 </head>
 
@@ -687,7 +725,7 @@
               <div class="rowCompare">
                 <div class="rowHead">
                   <strong>${esc(it.label)}</strong>
-                  <span class="pill">Comparer</span>
+                 
                 </div>
                 <div class="rowBody" style="display:grid;gap:12px;">
                   <div>
