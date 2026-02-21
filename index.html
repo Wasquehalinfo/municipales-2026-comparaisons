@@ -237,26 +237,31 @@
     .itemText{font-size:17px}
     .itemText p{margin:0}
 
-    /* Sources: support multi-lignes / listes / markdown */
+    /* Sources: plus petit + discret + "lien1, lien2..." */
     .src{
       margin-top:10px;
-      padding-top:10px;
-      border-top:1px dashed rgba(2,6,23,.12);
-      font-size:14px;
-      color:var(--muted);
+      padding-top:8px;
+      border-top:1px dashed rgba(2,6,23,.10);
+      font-size:12px;                /* ⬅️ plus petit */
+      color: rgba(71,85,105,.75);    /* ⬅️ plus discret */
     }
-    .src strong{color: var(--text)}
-    .srcList{margin-top:6px}
-    .srcList p{margin:0}
-    .srcList ul{margin:6px 0 0 18px; padding:0}
-    .srcList li{margin:4px 0}
+    .src strong{color: rgba(71,85,105,.75); font-weight: 650}
+    .srcLinks{
+      margin-top:6px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+    }
     .src a{
-      color:inherit;
+      font-size:12px;                /* ⬅️ plus petit */
+      color: rgba(71,85,105,.75);    /* ⬅️ plus discret */
       text-decoration:underline;
-      text-decoration-color: rgba(2,6,23,.25);
-      word-break: break-word;
+      text-decoration-color: rgba(71,85,105,.35);
     }
-    .src a:hover{text-decoration-color: rgba(2,6,23,.6)}
+    .src a:hover{
+      color: rgba(71,85,105,.95);
+      text-decoration-color: rgba(71,85,105,.75);
+    }
 
     /* Mobile: empiler + toggle */
     @media (max-width: 820px){
@@ -347,10 +352,9 @@
   ];
 
   // Sécurité : on n'autorise pas de HTML "dangereux" dans le Markdown
-  // (Marked ne sanitise pas tout seul. Ici on désactive l'HTML brut.)
   marked.setOptions({ mangle: false, headerIds: false });
   const renderer = new marked.Renderer();
-  renderer.html = () => ""; // ignore tout HTML brut dans les cellules
+  renderer.html = () => "";
   marked.use({ renderer });
 
   let mobileMode = "both";
@@ -374,35 +378,37 @@
       .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
   }
 
-  /* Markdown autorisé dans les cellules candidatA/candidatB/sourceA/sourceB */
+  /* Markdown autorisé dans les cellules candidatA/candidatB */
   function mdToHtml(s){ return marked.parse((s ?? "").toString()); }
 
+  // Extraire des URLs depuis du texte (liste markdown, lignes, etc.)
+  function extractUrls(text){
+    const t = (text ?? "").toString();
+    // prend les http(s) jusqu'à un espace ou fin de ligne, en évitant ) ] , " '
+    const re = /https?:\/\/[^\s\)\]\}>,"]+/g;
+    return (t.match(re) || []).map(u => u.trim());
+  }
+
   /**
-   * ✅ Sources multi-lignes / listes
-   * - Si tu mets plusieurs lignes dans la cellule => plusieurs liens
-   * - Si tu mets "- url" => liste
-   * - Si tu mets "[texte](url)" => lien avec libellé
+   * Sources -> affichage compact : lien1, lien2, ...
+   * - tu peux mettre plusieurs sources sur plusieurs lignes, en liste "- url", etc.
    */
   function srcHtml(sources){
     const raw = (sources ?? "").toString().trim();
     if(!raw) return "";
 
-    // Si la cellule contient juste une/des URL(s) sur plusieurs lignes,
-    // on les transforme en liste Markdown pour un rendu plus propre.
-    const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    const looksLikeList = lines.some(l => l.startsWith("- ") || l.startsWith("* "));
-    const looksLikeMarkdownLink = raw.includes("](");
+    const urls = extractUrls(raw);
+    if(urls.length === 0) return "";
 
-    let md = raw;
-    if(!looksLikeList && !looksLikeMarkdownLink && lines.length > 1){
-      // Convertit automatiquement en liste
-      md = lines.map(u => `- ${u}`).join("\n");
-    }
+    const links = urls.map((u, i) => {
+      const safe = esc(u).replaceAll('"',"&quot;");
+      return `<a href="${safe}" target="_blank" rel="noopener">lien${i+1}</a>`;
+    }).join("");
 
     return `
       <div class="src">
         <strong>Sources :</strong>
-        <div class="srcList">${mdToHtml(md)}</div>
+        <div class="srcLinks">${links}</div>
       </div>
     `;
   }
@@ -416,25 +422,14 @@
   function normalizePartKey(value){
     const v = (value || "").toString().trim().toLowerCase();
 
-    // équipes
     if (["equipe","équipes","équipe","les équipes","les equipe","les equipes","equipes"].includes(v)) return "equipes";
-
-    // programmes
     if (["programme","programmes","le programme","les programmes","programmes "].includes(v)) return "programmes";
-
-    // financements (acceptons budget/moyens)
     if (["budget","moyen","moyens","les moyens","financement","financements","les financements","financements "].includes(v)) return "financements";
-
-    // déjà bon ?
     if (["equipes","programmes","financements"].includes(v)) return v;
 
     return v;
   }
 
-  /**
-   * CSV attendu :
-   * partie, sous_partie, item, candidatA, candidatB, sourceA, sourceB, ordre_sous_partie, ordre_item
-   */
   function normalizeRow(r){
     return {
       partie: normalizePartKey(r.partie),
@@ -647,9 +642,7 @@
     }).join("");
 
     app.innerHTML = headerCards + sectionsHtml + `
-      <div class="footerNote">
-    
-      </div>
+      <div class="footerNote"></div>
     `;
 
     document.querySelectorAll('.mobileOnly[data-mode]').forEach(el => {
