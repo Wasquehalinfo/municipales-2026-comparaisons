@@ -230,6 +230,9 @@
 
     /* Sous-parties (accordéons) */
     details{border-top:1px solid var(--border)}
+    /* Pour que le scroll se cale bien sous le header sticky */
+    details{ scroll-margin-top: 96px; }
+    summary{ scroll-margin-top: 96px; }
     summary{
       list-style:none;
       cursor:pointer;
@@ -544,16 +547,39 @@
 
   // ✅ NOUVEAU : accordéon exclusif (un seul <details> ouvert à la fois)
   function setupExclusiveAccordion(){
-    const all = Array.from(document.querySelectorAll("details"));
-    all.forEach(d => {
-      d.addEventListener("toggle", () => {
-        if (!d.open) return;
-        for (const other of all) {
-          if (other !== d) other.open = false;
-        }
+  const header = document.querySelector("header");
+
+  function headerOffset(){
+    // hauteur du header sticky + petite marge
+    const h = header ? header.getBoundingClientRect().height : 0;
+    return Math.round(h + 12);
+  }
+
+  function scrollToDetailsTop(detailsEl){
+    const y = window.scrollY + detailsEl.getBoundingClientRect().top - headerOffset();
+    window.scrollTo({ top: y, behavior: "smooth" });
+  }
+
+  const all = Array.from(document.querySelectorAll("details"));
+
+  all.forEach(d => {
+    d.addEventListener("toggle", () => {
+      if (!d.open) return;
+
+      // Ferme les autres d'abord
+      for (const other of all) {
+        if (other !== d) other.open = false;
+      }
+
+      // Puis, après que le layout se soit recalculé, on se repositionne
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          scrollToDetailsTop(d);
+        });
       });
     });
-  }
+  });
+}
 
   function render(model){
     const app = document.getElementById("app");
