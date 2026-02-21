@@ -198,13 +198,27 @@
     details[open] .chev{transform: rotate(180deg)}
     .topicBody{padding:0 16px 16px}
 
-    /* Desktop: 2 colonnes */
-    .compareGrid{
+    /* ======= NOUVEAU : desktop en lignes A/B (hauteurs identiques) ======= */
+    .desktopCompareHead{
       display:grid;
       grid-template-columns: 1fr 1fr;
       gap:12px;
-      margin-top: 12px;
+      margin-top:12px;
     }
+
+    .rowGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:12px;
+      margin-top:12px;
+    }
+    .rowCell{
+      height:100%;
+      display:flex;
+      flex-direction:column;
+    }
+
+    /* Cartes / items */
     .colCard{
       border:1px solid var(--border);
       border-radius: 14px;
@@ -223,7 +237,6 @@
     .colName{font-weight:950; font-size:16px; margin:0}
     .colTag{font-size:14px; color:var(--muted); margin-top:2px}
 
-    .items{display:flex; flex-direction:column; gap:10px}
     .item{
       padding:12px;
       border:1px solid var(--border);
@@ -237,15 +250,18 @@
     .itemText{font-size:17px}
     .itemText p{margin:0}
 
-    /* Sources: plus petit + discret + "lien1, lien2..." */
+    /* Sources : très discret + lien1, lien2... */
     .src{
       margin-top:10px;
       padding-top:8px;
       border-top:1px dashed rgba(2,6,23,.10);
-      font-size:12px;                /* ⬅️ plus petit */
-      color: rgba(71,85,105,.75);    /* ⬅️ plus discret */
+      font-size:12px;
+      color: rgba(71,85,105,.72);
     }
-    .src strong{color: rgba(71,85,105,.75); font-weight: 650}
+    .src strong{
+      color: rgba(71,85,105,.72);
+      font-weight:650;
+    }
     .srcLinks{
       margin-top:6px;
       display:flex;
@@ -253,20 +269,19 @@
       gap:8px;
     }
     .src a{
-      font-size:12px;                /* ⬅️ plus petit */
-      color: rgba(71,85,105,.75);    /* ⬅️ plus discret */
+      font-size:12px;
+      color: rgba(71,85,105,.72);
       text-decoration:underline;
-      text-decoration-color: rgba(71,85,105,.35);
+      text-decoration-color: rgba(71,85,105,.30);
     }
     .src a:hover{
       color: rgba(71,85,105,.95);
-      text-decoration-color: rgba(71,85,105,.75);
+      text-decoration-color: rgba(71,85,105,.70);
     }
 
     /* Mobile: empiler + toggle */
     @media (max-width: 820px){
       .candRow{grid-template-columns:1fr}
-      .compareGrid{grid-template-columns:1fr}
       .desktopOnly{display:none !important}
     }
     @media (min-width: 821px){
@@ -304,8 +319,6 @@
     .rowText p{margin:0}
 
     .loading{color:var(--muted); font-size:17px}
-    .footerNote{margin-top:18px; font-size:15px; color:var(--muted)}
-    code{background:#f1f5f9; border:1px solid var(--border); padding:2px 6px; border-radius:8px}
   </style>
 </head>
 
@@ -344,14 +357,14 @@
     B: { name: "Stéphanie Ducret", tag: "Wasquehal pour Tous" }
   };
 
-  /* 3 grandes parties (sans descriptions) */
+  /* 3 grandes parties */
   const PARTS = [
     { key: "equipes",       id: "equipes",       title: "Les équipes" },
     { key: "programmes",    id: "programmes",    title: "Les programmes" },
     { key: "financements",  id: "financements",  title: "Les financements" },
   ];
 
-  // Sécurité : on n'autorise pas de HTML "dangereux" dans le Markdown
+  // Sécurité : on n'autorise pas de HTML brut dans le Markdown
   marked.setOptions({ mangle: false, headerIds: false });
   const renderer = new marked.Renderer();
   renderer.html = () => "";
@@ -378,21 +391,14 @@
       .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;");
   }
 
-  /* Markdown autorisé dans les cellules candidatA/candidatB */
   function mdToHtml(s){ return marked.parse((s ?? "").toString()); }
 
-  // Extraire des URLs depuis du texte (liste markdown, lignes, etc.)
   function extractUrls(text){
     const t = (text ?? "").toString();
-    // prend les http(s) jusqu'à un espace ou fin de ligne, en évitant ) ] , " '
     const re = /https?:\/\/[^\s\)\]\}>,"]+/g;
     return (t.match(re) || []).map(u => u.trim());
   }
 
-  /**
-   * Sources -> affichage compact : lien1, lien2, ...
-   * - tu peux mettre plusieurs sources sur plusieurs lignes, en liste "- url", etc.
-   */
   function srcHtml(sources){
     const raw = (sources ?? "").toString().trim();
     if(!raw) return "";
@@ -418,7 +424,6 @@
     return Number.isFinite(n) ? n : fallback;
   }
 
-  /* Compatibilité avec plusieurs libellés dans le CSV */
   function normalizePartKey(value){
     const v = (value || "").toString().trim().toLowerCase();
 
@@ -488,6 +493,19 @@
     };
   }
 
+  // ✅ NOUVEAU : accordéon exclusif (un seul <details> ouvert à la fois)
+  function setupExclusiveAccordion(){
+    const all = Array.from(document.querySelectorAll("details"));
+    all.forEach(d => {
+      d.addEventListener("toggle", () => {
+        if (!d.open) return;
+        for (const other of all) {
+          if (other !== d) other.open = false;
+        }
+      });
+    });
+  }
+
   function render(model){
     const app = document.getElementById("app");
     if(!model){
@@ -524,47 +542,49 @@
     `;
 
     const sectionsHtml = model.parts.map(part => {
-      const sousHtml = (part.sousParts || []).map((sp, idx) => {
+      const sousHtml = (part.sousParts || []).map((sp) => {
+
+        // ✅ Desktop : ligne par item (A | B) => hauteurs identiques
         const desktop = `
-          <div class="compareGrid desktopOnly">
-            <div class="colCard">
-              <div class="colHead">
-                <div>
-                  <div class="colName" style="color:var(--a)">${esc(A.name)}</div>
-                  <div class="colTag">${esc(A.tag)}</div>
+          <div class="desktopOnly">
+            <div class="desktopCompareHead">
+              <div class="colCard">
+                <div class="colHead" style="margin-bottom:0;border-bottom:0;padding-bottom:0;">
+                  <div>
+                    <div class="colName" style="color:var(--a)">${esc(A.name)}</div>
+                    <div class="colTag">${esc(A.tag)}</div>
+                  </div>
                 </div>
               </div>
-              <div class="items">
-                ${sp.items.map(it => `
-                  <div class="item itemA">
-                    <p class="itemTitle">${esc(it.label)}</p>
-                    <div class="itemText">${mdToHtml(it.A?.text || "")}</div>
-                    ${srcHtml(it.A?.sources || "")}
+              <div class="colCard">
+                <div class="colHead" style="margin-bottom:0;border-bottom:0;padding-bottom:0;">
+                  <div>
+                    <div class="colName" style="color:var(--b)">${esc(B.name)}</div>
+                    <div class="colTag">${esc(B.tag)}</div>
                   </div>
-                `).join("")}
+                </div>
               </div>
             </div>
 
-            <div class="colCard">
-              <div class="colHead">
-                <div>
-                  <div class="colName" style="color:var(--b)">${esc(B.name)}</div>
-                  <div class="colTag">${esc(B.tag)}</div>
+            <div class="rowGrid">
+              ${sp.items.map(it => `
+                <div class="rowCell item itemA">
+                  <p class="itemTitle">${esc(it.label)}</p>
+                  <div class="itemText">${mdToHtml(it.A?.text || "")}</div>
+                  ${srcHtml(it.A?.sources || "")}
                 </div>
-              </div>
-              <div class="items">
-                ${sp.items.map(it => `
-                  <div class="item itemB">
-                    <p class="itemTitle">${esc(it.label)}</p>
-                    <div class="itemText">${mdToHtml(it.B?.text || "")}</div>
-                    ${srcHtml(it.B?.sources || "")}
-                  </div>
-                `).join("")}
-              </div>
+
+                <div class="rowCell item itemB">
+                  <p class="itemTitle">${esc(it.label)}</p>
+                  <div class="itemText">${mdToHtml(it.B?.text || "")}</div>
+                  ${srcHtml(it.B?.sources || "")}
+                </div>
+              `).join("")}
             </div>
           </div>
         `;
 
+        // Mobile : on conserve ton rendu
         const mobileBoth = `
           <div class="singleView mobileOnly" data-mode="both">
             ${sp.items.map(it => `
@@ -641,13 +661,15 @@
       `;
     }).join("");
 
-    app.innerHTML = headerCards + sectionsHtml + `
-      <div class="footerNote"></div>
-    `;
+    app.innerHTML = headerCards + sectionsHtml;
 
+    // Mode mobile (affiche le bon bloc)
     document.querySelectorAll('.mobileOnly[data-mode]').forEach(el => {
       el.style.display = (el.getAttribute('data-mode') === mobileMode) ? 'grid' : 'none';
     });
+
+    // ✅ Accordeon exclusif
+    setupExclusiveAccordion();
   }
 
   function loadFromCsv(){
