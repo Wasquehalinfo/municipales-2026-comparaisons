@@ -456,9 +456,20 @@
 
   // Sécurité : on n'autorise pas de HTML brut dans le Markdown
   marked.setOptions({ mangle: false, headerIds: false });
-  const renderer = new marked.Renderer();
-  renderer.html = () => "";
-  marked.use({ renderer });
+
+const renderer = new marked.Renderer();
+
+// Désactive le HTML brut (sécurité)
+renderer.html = () => "";
+
+// Force target="_blank" sur TOUS les liens Markdown
+renderer.link = function(href, title, text) {
+  const safeHref = href || "";
+  const safeTitle = title ? ` title="${title}"` : "";
+  return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer"${safeTitle}>${text}</a>`;
+};
+
+marked.use({ renderer });
 
   let mobileMode = "both";
 
