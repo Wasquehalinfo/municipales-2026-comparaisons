@@ -455,18 +455,32 @@
   ];
 
   // Sécurité : on n'autorise pas de HTML brut dans le Markdown
-  marked.setOptions({ mangle: false, headerIds: false });
+marked.setOptions({ mangle: false, headerIds: false });
 
 const renderer = new marked.Renderer();
 
 // Désactive le HTML brut (sécurité)
 renderer.html = () => "";
 
-// Force target="_blank" sur TOUS les liens Markdown
+// Force target="_blank" sur TOUS les liens Markdown (robuste selon les versions)
 renderer.link = function(href, title, text) {
-  const safeHref = href || "";
-  const safeTitle = title ? ` title="${title}"` : "";
-  return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer"${safeTitle}>${text}</a>`;
+  // Compatibilité : renderer.link(token) OU renderer.link(href, title, text)
+  let H = href, T = title, X = text;
+
+  if (href && typeof href === "object") {
+    H = href.href;
+    T = href.title;
+    X = href.text;
+  }
+
+  const safeHref = (H ?? "").toString().replace(/"/g, "&quot;");
+  const safeText = (X ?? safeHref ?? "").toString();
+  const safeTitle = T ? ` title="${String(T).replace(/"/g, "&quot;")}"` : "";
+
+  // Si pas d'URL, on renvoie juste le texte
+  if (!safeHref) return safeText;
+
+  return `<a href="${safeHref}" target="_blank" rel="noopener noreferrer"${safeTitle}>${safeText}</a>`;
 };
 
 marked.use({ renderer });
