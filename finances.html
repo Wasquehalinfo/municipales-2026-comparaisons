@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>3 graphiques (Dette / Épargne brute / Investissement équipement) + debug</title>
+  <title>Graphiques + camembert dépenses de fonctionnement 2024</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
     .wrap { max-width: 1100px; margin: 0 auto; }
@@ -13,19 +13,19 @@
     @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
     .card { border: 1px solid #e5e5e5; border-radius: 12px; padding: 16px; }
     .card h2 { margin: 0 0 10px; font-size: 16px; }
+    .muted { color: #666; font-size: 13px; }
     canvas { width: 100%; height: 360px; }
     details { margin-top: 10px; }
     summary { cursor: pointer; font-weight: 600; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
     th, td { border: 1px solid #eaeaea; padding: 8px; text-align: left; }
     th { background: #f7f7f7; }
-    .muted { color: #666; font-size: 13px; }
     code { background: #f6f6f6; padding: 2px 6px; border-radius: 6px; }
   </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>3 graphiques séparés : Dette / Épargne brute / Investissement d’équipement</h1>
+  <h1>Graphiques : Dette / Épargne brute / Investissement + Camembert fonctionnement 2024</h1>
   <div id="status">Chargement…</div>
 
   <div class="muted" style="margin-bottom:12px">
@@ -47,16 +47,26 @@
       <h2>Investissement d’équipement</h2>
       <canvas id="chartEquip"></canvas>
     </div>
+
+    <div class="card" style="grid-column: 1 / -1;">
+      <h2 id="pieTitle">Dépenses de fonctionnement 2024 — Total : …</h2>
+      <div class="muted" style="margin-bottom:8px">
+        Colonne E (2024) — lignes 29, 38, 39, 42, 43, 45 + “Autre” calculé à partir du total (ligne 64).
+      </div>
+      <canvas id="pieOps2024"></canvas>
+    </div>
   </div>
 
   <div class="card" style="margin-top:16px">
     <details open>
       <summary>Points extraits (debug)</summary>
       <div class="muted">
-        L1 = années (E→U). L20 = dette. L71 = épargne brute. L106 = investissement d’équipement.
-        Inversion pour afficher la chronologie (2008 → 2024).
+        Courbes : L1 = années (E→U). L20 = dette. L71 = épargne brute. L106 = investissement d’équipement.
+        Inversion pour afficher la chronologie (2008 → 2024).<br/>
+        Camembert : colonne E uniquement (2024) avec détail + total ligne 64.
       </div>
       <div id="debug"></div>
+      <div id="debugOps" style="margin-top:12px"></div>
     </details>
   </div>
 </div>
@@ -70,15 +80,27 @@
   // === CONFIG ===
   const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT1OlpocgYWZCF_AB7jE8a3885mIFLfysIonoRyTgQAfxdTbF7JFwz3HbetjrYAQN4LBZDe-DWvSd7F/pub?gid=0&single=true&output=csv";
 
+  // Courbes (E→U)
   const YEAR_ROW_1_BASED = 1;       // années
   const DEBT_ROW_1_BASED = 20;      // dette
   const SAVING_ROW_1_BASED = 71;    // épargne brute
   const EQUIP_ROW_1_BASED = 106;    // investissement d'équipement
+  const COL_START = "E";
+  const COL_END   = "U";
 
-  const COL_START = "E";            // de E
-  const COL_END   = "U";            // à U
+  // Camembert fonctionnement 2024 (colonne E)
+  const OPS_COL = "E"; // 2024
+  const OPS_ROWS = {
+    "Charges à caractère général": 29,
+    "Indemnités des élus": 38,
+    "Salaires & cotisations des agents": 39,
+    "Subventions aux associations": 42,
+    "Subvention au CCAS": 43,
+    "Intérêts de la dette": 45
+  };
+  const OPS_TOTAL_ROW_1_BASED = 64;
 
-  // Unité affichée (adapte si besoin: "k€", "M€", "Md€", etc.)
+  // Unité affichée
   const UNIT = "€";
   // =============
 
@@ -97,7 +119,6 @@
     const s = String(v).trim();
     if (!s) return null;
 
-    // Normalise espaces et insécables
     let t = s.replace(/\u00A0/g, " ").replace(/\s+/g, "");
 
     // Heuristique FR : si virgule, on considère la virgule décimale
@@ -105,9 +126,7 @@
       t = t.replace(/\./g, "").replace(/,/g, ".");
     }
 
-    // Retire tout sauf chiffres, signe, point, exponentiel
     t = t.replace(/[^0-9eE.+-]/g, "");
-
     const num = Number(t);
     return Number.isFinite(num) ? num : null;
   }
@@ -115,10 +134,14 @@
   function cleanYearLabel(v) {
     const s = String(v ?? "").trim();
     if (!s) return "";
-    // Convertit "2010.0" -> "2010" si possible
     const n = Number(s.replace(",", "."));
     if (Number.isFinite(n)) return String(Math.trunc(n));
     return s;
+  }
+
+  function formatMoney(n) {
+    if (n === null || n === undefined || !Number.isFinite(n)) return "—";
+    return n.toLocaleString("fr-FR") + " " + UNIT;
   }
 
   async function loadCsv(url) {
@@ -140,6 +163,12 @@
     return out;
   }
 
+  function getCell(data, row1based, colLetters) {
+    const r = row1based - 1;
+    const c = excelColToIndex(colLetters);
+    return (data?.[r]?.[c] ?? "");
+  }
+
   function escapeHtml(s) {
     return String(s ?? "")
       .replaceAll("&", "&amp;")
@@ -150,7 +179,6 @@
   }
 
   function indexToExcelCol(idx0) {
-    // 0->A
     let n = idx0 + 1;
     let s = "";
     while (n > 0) {
@@ -166,9 +194,7 @@
       <table>
         <thead>
           <tr>
-            <th>#</th>
-            <th>Col.</th>
-            <th>Année</th>
+            <th>#</th><th>Col.</th><th>Année</th>
             <th>Dette (raw)</th><th>Dette (num)</th>
             <th>Épargne brute (raw)</th><th>Épargne brute (num)</th>
             <th>Inv. équipement (raw)</th><th>Inv. équipement (num)</th>
@@ -192,6 +218,28 @@
       </table>
     `;
     container.innerHTML = html;
+  }
+
+  function renderOpsDebug(container, items, total, other) {
+    const rows = items.map(it => `
+      <tr>
+        <td>${escapeHtml(it.label)}</td>
+        <td>${escapeHtml(it.raw)}</td>
+        <td>${it.value === null ? "" : it.value.toLocaleString("fr-FR")}</td>
+      </tr>
+    `).join("");
+
+    container.innerHTML = `
+      <div class="muted" style="margin-top:6px">Détail camembert (colonne ${OPS_COL}) :</div>
+      <table>
+        <thead><tr><th>Poste</th><th>Valeur (raw)</th><th>Valeur (num)</th></tr></thead>
+        <tbody>
+          ${rows}
+          <tr><th>Autre (calculé)</th><td>—</td><td>${Number.isFinite(other) ? other.toLocaleString("fr-FR") : ""}</td></tr>
+          <tr><th>Total (ligne ${OPS_TOTAL_ROW_1_BASED})</th><td>—</td><td>${Number.isFinite(total) ? total.toLocaleString("fr-FR") : ""}</td></tr>
+        </tbody>
+      </table>
+    `;
   }
 
   function buildLineChart(canvasId, labels, values, title) {
@@ -223,17 +271,35 @@
           }
         },
         scales: {
-          x: {
-            type: "category",
-            title: { display: true, text: "Année" },
-            ticks: { autoSkip: true, maxRotation: 0 }
-          },
-          y: {
-            title: { display: true, text: `${title} (en ${UNIT})` },
-            ticks: {
-              callback: (v) => Number(v).toLocaleString("fr-FR") + " " + UNIT
+          x: { type: "category", title: { display: true, text: "Année" }, ticks: { autoSkip: true, maxRotation: 0 } },
+          y: { title: { display: true, text: `${title} (en ${UNIT})` },
+               ticks: { callback: (v) => Number(v).toLocaleString("fr-FR") + " " + UNIT } }
+        }
+      }
+    });
+  }
+
+  function buildPieChart(canvasId, title, labels, values) {
+    const ctx = document.getElementById(canvasId);
+    return new Chart(ctx, {
+      type: "doughnut", // tu peux mettre "pie" si tu préfères
+      data: {
+        labels,
+        datasets: [{ data: values }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "bottom" },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => {
+                const v = ctx.parsed;
+                return `${ctx.label} : ${Number(v).toLocaleString("fr-FR")} ${UNIT}`;
+              }
             }
-          }
+          },
+          title: { display: false, text: title }
         }
       }
     });
@@ -242,10 +308,13 @@
   (async () => {
     const status = document.getElementById("status");
     const debugEl = document.getElementById("debug");
+    const debugOpsEl = document.getElementById("debugOps");
+    const pieTitleEl = document.getElementById("pieTitle");
 
     try {
       const data = await loadCsv(CSV_URL);
 
+      // === 1) Courbes ===
       const yearRowIdx  = YEAR_ROW_1_BASED - 1;
       const debtRowIdx  = DEBT_ROW_1_BASED - 1;
       const saveRowIdx  = SAVING_ROW_1_BASED - 1;
@@ -264,7 +333,6 @@
       const saveRaw  = pickRange(data[saveRowIdx], startIdx, endIdx);
       const equipRaw = pickRange(data[equipRowIdx], startIdx, endIdx);
 
-      // Labels + valeurs
       let labels = yearsRaw.map(cleanYearLabel);
       let debtValues  = debtRaw.map(toNumber).map(v => (v === null ? null : v));
       let saveValues  = saveRaw.map(toNumber).map(v => (v === null ? null : v));
@@ -294,23 +362,53 @@
       }
       renderDebugTable(debugEl, debugRows);
 
+      // 3 graphiques distincts
+      buildLineChart("chartDebt", labels, debtValues, "Dette");
+      buildLineChart("chartSaving", labels, saveValues, "Épargne brute");
+      buildLineChart("chartEquip", labels, equipValues, "Investissement d’équipement");
+
+      // === 2) Camembert dépenses de fonctionnement 2024 (colonne E) ===
+      const opsItems = Object.entries(OPS_ROWS).map(([label, row]) => {
+        const raw = getCell(data, row, OPS_COL);
+        const value = toNumber(raw);
+        return { label, row, raw, value };
+      });
+
+      const totalRaw = getCell(data, OPS_TOTAL_ROW_1_BASED, OPS_COL);
+      const total = toNumber(totalRaw);
+
+      const sumKnown = opsItems.reduce((acc, it) => acc + (it.value ?? 0), 0);
+
+      // "Autre" = total - somme des postes (si total existe)
+      let other = null;
+      if (total !== null) other = total - sumKnown;
+
+      // Si "other" devient négatif (données incohérentes / arrondis), on le borne à 0
+      if (other !== null && other < 0) other = 0;
+
+      const pieLabels = opsItems.map(it => it.label).concat(["Autre"]);
+      const pieValues = opsItems.map(it => it.value ?? 0).concat([other ?? 0]);
+
+      pieTitleEl.textContent = `Dépenses de fonctionnement 2024 — Total : ${formatMoney(total)}`;
+
+      buildPieChart("pieOps2024", pieTitleEl.textContent, pieLabels, pieValues);
+      renderOpsDebug(debugOpsEl, opsItems, total, other);
+
+      // Status
       const debtCount  = debtValues.filter(v => v !== null).length;
       const saveCount  = saveValues.filter(v => v !== null).length;
       const equipCount = equipValues.filter(v => v !== null).length;
 
       status.textContent =
-        `OK — ${labels.length} années (2008 → 2024). ` +
-        `Dette: ${debtCount} valeurs. Épargne brute: ${saveCount} valeurs. Invest. équipement: ${equipCount} valeurs.`;
-
-      // 3 graphiques distincts (un dataset chacun)
-      buildLineChart("chartDebt", labels, debtValues, "Dette");
-      buildLineChart("chartSaving", labels, saveValues, "Épargne brute");
-      buildLineChart("chartEquip", labels, equipValues, "Investissement d’équipement");
+        `OK — Courbes: ${labels.length} années (2008 → 2024). ` +
+        `Dette: ${debtCount}, Épargne brute: ${saveCount}, Invest. équipement: ${equipCount}. ` +
+        `Camembert fonctionnement 2024 (col. E): total ${formatMoney(total)}.`;
 
     } catch (e) {
       status.textContent = "Erreur : " + (e?.message ?? e);
       console.error(e);
       debugEl.innerHTML = `<div class="muted">Impossible d'afficher le debug.</div>`;
+      debugOpsEl.innerHTML = `<div class="muted">Impossible d'afficher le debug du camembert.</div>`;
     }
   })();
 </script>
