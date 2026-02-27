@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Courbe de la dette + debug CSV</title>
+  <title>Dette + Épargne brute (CSV) + debug</title>
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
     .wrap { max-width: 1100px; margin: 0 auto; }
@@ -23,7 +23,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>Courbe de la dette (CSV Google Sheets) + affichage des points</h1>
+  <h1>Courbes : Dette & Épargne brute (CSV Google Sheets) + affichage des points</h1>
   <div id="status">Chargement…</div>
 
   <div class="card">
@@ -37,8 +37,7 @@
     <details open>
       <summary>Points extraits (debug)</summary>
       <div class="muted">
-        On affiche ce qui est lu sur la ligne des années (ligne 1, E→U) et la ligne de dette (ligne 20, E→U),
-        puis on inverse l’ordre pour afficher la chronologie (2008 → 2024).
+        L1 = années (E→U). L20 = dette. L71 = épargne brute. Puis inversion pour afficher (2008 → 2024).
       </div>
       <div id="debug"></div>
     </details>
@@ -54,16 +53,16 @@
   // === CONFIG ===
   const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT1OlpocgYWZCF_AB7jE8a3885mIFLfysIonoRyTgQAfxdTbF7JFwz3HbetjrYAQN4LBZDe-DWvSd7F/pub?gid=0&single=true&output=csv";
 
-  const YEAR_ROW_1_BASED = 1;     // ligne 1
-  const DEBT_ROW_1_BASED = 20;    // ligne 20
+  const YEAR_ROW_1_BASED = 1;      // années
+  const DEBT_ROW_1_BASED = 20;     // dette
+  const SAVING_ROW_1_BASED = 71;   // épargne brute
 
-  const COL_START = "E";          // de E
-  const COL_END   = "U";          // à U
+  const COL_START = "E";           // de E
+  const COL_END   = "U";           // à U
 
-  // Unité affichée
+  // Unité affichée (si tes valeurs sont en € / k€ / M€ / Md€ adapte ici)
   const CURRENCY_SYMBOL = "€";
-  const SERIES_LABEL = `Dette (en euros)`;
-  const Y_AXIS_TITLE = `Dette (en euros)`;
+  const Y_AXIS_TITLE = `Montants (en ${CURRENCY_SYMBOL})`;
   // =============
 
   document.getElementById("src").textContent = CSV_URL;
@@ -152,11 +151,11 @@
           <tr>
             <th>#</th>
             <th>Col.</th>
-            <th>Année (raw)</th>
-            <th>Année (clean)</th>
+            <th>Année</th>
             <th>Dette (raw)</th>
             <th>Dette (num)</th>
-            <th>Utilisé ?</th>
+            <th>Épargne brute (raw)</th>
+            <th>Épargne brute (num)</th>
           </tr>
         </thead>
         <tbody>
@@ -164,11 +163,11 @@
             <tr>
               <td>${r.idx}</td>
               <td>${r.col}</td>
-              <td>${escapeHtml(r.yearRaw)}</td>
-              <td>${escapeHtml(r.yearClean)}</td>
+              <td>${escapeHtml(r.year)}</td>
               <td>${escapeHtml(r.debtRaw)}</td>
               <td>${r.debtNum === null ? "" : r.debtNum.toLocaleString("fr-FR")}</td>
-              <td>${r.used ? "✅" : "—"}</td>
+              <td>${escapeHtml(r.saveRaw)}</td>
+              <td>${r.saveNum === null ? "" : r.saveNum.toLocaleString("fr-FR")}</td>
             </tr>
           `).join("")}
         </tbody>
@@ -186,59 +185,71 @@
 
       const yearRowIdx = YEAR_ROW_1_BASED - 1;
       const debtRowIdx = DEBT_ROW_1_BASED - 1;
+      const saveRowIdx = SAVING_ROW_1_BASED - 1;
 
       const startIdx = excelColToIndex(COL_START);
       const endIdx   = excelColToIndex(COL_END);
 
       if (!data[yearRowIdx]) throw new Error(`Ligne ${YEAR_ROW_1_BASED} introuvable dans le CSV.`);
       if (!data[debtRowIdx]) throw new Error(`Ligne ${DEBT_ROW_1_BASED} introuvable dans le CSV.`);
+      if (!data[saveRowIdx]) throw new Error(`Ligne ${SAVING_ROW_1_BASED} introuvable dans le CSV.`);
 
       const yearsRaw = pickRange(data[yearRowIdx], startIdx, endIdx);
       const debtRaw  = pickRange(data[debtRowIdx], startIdx, endIdx);
+      const saveRaw  = pickRange(data[saveRowIdx], startIdx, endIdx);
 
-      // Labels et valeurs alignés (même longueur)
+      // Labels et valeurs alignés
       let labels = yearsRaw.map(cleanYearLabel);
-      let values = debtRaw.map(toNumber).map(v => (v === null ? null : v));
+      let debtValues = debtRaw.map(toNumber).map(v => (v === null ? null : v));
+      let saveValues = saveRaw.map(toNumber).map(v => (v === null ? null : v));
 
       // Inversion chronologique (2008 → 2024)
       labels = labels.reverse();
-      values = values.reverse();
+      debtValues = debtValues.reverse();
+      saveValues = saveValues.reverse();
 
-      // Debug rows (E..U) — on montre l’ordre final (après inversion)
+      // Debug rows — ordre final
       const debugRows = [];
       for (let i = 0; i < labels.length; i++) {
-        // Après inversion, la correspondance colonne Excel n'est plus directe,
-        // donc on garde la colonne source "originale" calculée à l’envers.
         const originalColIdx0 = endIdx - i;
-        const used = Boolean(labels[i]) && (values[i] !== null);
         debugRows.push({
           idx: i + 1,
           col: indexToExcelCol(originalColIdx0),
-          yearRaw: yearsRaw[yearsRaw.length - 1 - i],
-          yearClean: labels[i],
+          year: labels[i],
           debtRaw: debtRaw[debtRaw.length - 1 - i],
-          debtNum: values[i],
-          used
+          debtNum: debtValues[i],
+          saveRaw: saveRaw[saveRaw.length - 1 - i],
+          saveNum: saveValues[i]
         });
       }
       renderDebugTable(debugEl, debugRows);
 
-      const usedCount = debugRows.filter(r => r.used).length;
-      status.textContent = `OK — ${labels.length} années lues (E→U), ${usedCount} points exploitables. Affichage chronologique (2008 → 2024).`;
+      const debtCount = debtValues.filter(v => v !== null).length;
+      const saveCount = saveValues.filter(v => v !== null).length;
+      status.textContent = `OK — ${labels.length} années. Dette: ${debtCount} valeurs. Épargne brute: ${saveCount} valeurs. (2008 → 2024)`;
 
-      // Courbe
+      // Courbes
       const ctx = document.getElementById("chart");
       new Chart(ctx, {
         type: "line",
         data: {
           labels,
-          datasets: [{
-            label: SERIES_LABEL,
-            data: values,
-            spanGaps: true,
-            tension: 0.25,
-            pointRadius: 3
-          }]
+          datasets: [
+            {
+              label: `Dette (en ${CURRENCY_SYMBOL})`,
+              data: debtValues,
+              spanGaps: true,
+              tension: 0.25,
+              pointRadius: 3
+            },
+            {
+              label: `Épargne brute (en ${CURRENCY_SYMBOL})`,
+              data: saveValues,
+              spanGaps: true,
+              tension: 0.25,
+              pointRadius: 3
+            }
+          ]
         },
         options: {
           responsive: true,
@@ -248,8 +259,9 @@
               callbacks: {
                 label: (ctx) => {
                   const v = ctx.parsed.y;
-                  if (v === null || v === undefined) return `${SERIES_LABEL}: —`;
-                  return `${SERIES_LABEL} : ${Number(v).toLocaleString("fr-FR")} ${CURRENCY_SYMBOL}`;
+                  const name = ctx.dataset.label;
+                  if (v === null || v === undefined) return `${name}: —`;
+                  return `${name} : ${Number(v).toLocaleString("fr-FR")} ${CURRENCY_SYMBOL}`;
                 }
               }
             }
