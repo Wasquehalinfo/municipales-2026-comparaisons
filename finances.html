@@ -192,6 +192,10 @@
       const labels = yearsRaw.map(cleanYearLabel);
       const values = debtRaw.map(toNumber).map(v => (v === null ? null : v));
 
+      // Inversion chronologique (2008 → 2024)
+      labels = labels.reverse();
+      values = values.reverse();
+      
       // Debug rows (E..U)
       const debugRows = [];
       for (let i = 0; i < labels.length; i++) {
@@ -228,14 +232,27 @@
         },
         options: {
           responsive: true,
-          plugins: { legend: { display: true } },
+          plugins: {
+            legend: { display: true },
+            tooltip: {
+              callbacks: {
+                label: ctx =>
+                  `${ctx.dataset.label} : ${ctx.parsed.y.toLocaleString("fr-FR")} €`
+              }
+            }
+          },
           scales: {
             x: {
               type: "category",
               title: { display: true, text: "Année" },
               ticks: { autoSkip: true, maxRotation: 0 }
             },
-            y: { title: { display: true, text: "Dette" } }
+            y: {
+              title: { display: true, text: "Dette (en euros)" },
+              ticks: {
+                callback: v => v.toLocaleString("fr-FR") + " €"
+              }
+            }
           }
         }
       });
